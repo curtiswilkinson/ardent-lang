@@ -1,0 +1,15 @@
+*.crt
+*.key
+*.log
+*.pem
+.env
+.npm
+build/
+development/
+node_modules
+tmp/
+.idea
+.DS_Store
+.projectile
+package-lock.json
+*.ard.js

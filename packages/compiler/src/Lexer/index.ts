@@ -1,0 +1,258 @@
+import {
+  Node,
+  AST,
+  FunctionNode,
+  CallExpressionNode,
+  BinaryExpressionNode,
+  IdentifierNode,
+  NumberNode,
+  ProgramNode,
+  StringNode,
+  VariableNode
+} from './interface'
+
+import { Token, TokenType, WhitespaceType } from '../Tokenise/interface'
+
+export const parseFunction = (
+  current: number,
+  tokens: Token[]
+): [number, Node] => {
+  let token = tokens[current++]
+  const node: FunctionNode = {
+    type: 'Function',
+    name: token.value,
+    params: [],
+    body: []
+  }
+
+  let param = undefined
+  token = tokens[current++]
+
+  while (token.type === TokenType.IDENTIFIER) {
+    node.params.push({ type: 'Identifier', name: token.value })
+    token = tokens[current++]
+  }
+
+  if (token.value !== '=>' || tokens[current].value !== '{') {
+    // HACK, this needs to be fixed pretty badly lol
+    // Skip the => and {
+
+    throw new Error('Improper function syntax')
+  }
+
+  // Skipping
+  token = tokens[++current]
+
+  let bodyNode = undefined
+
+  while (token.value !== '}') {
+    ;[current, bodyNode] = parseToken(current, tokens)
+
+    if (bodyNode) {
+      node.body.push(bodyNode)
+    }
+    token = tokens[current]
+  }
+
+  return [current + 1, node]
+}
+
+const parseCallExpression = (
+  current: number,
+  tokens: Token[]
+): [number, Node] => {
+  let token = tokens[current]
+  let next = tokens[current + 1]
+
+  let callee: Node | undefined
+  ;[current, callee] = parseIdentifier(current, tokens)
+  if (!callee) {
+    throw new Error('No call expression callee thing')
+  }
+  const node = {
+    type: 'CallExpression',
+    callee: callee,
+    args: []
+  } as CallExpressionNode
+
+  let arg
+  while (
+    token &&
+    next &&
+    token.value !== WhitespaceType.DEDENT &&
+    token.value !== WhitespaceType.SAMEDENT
+  ) {
+    ;[current, arg] = parseToken(current, tokens)
+    if (arg) {
+      node.args.push(arg as any)
+    }
+    token = tokens[current]
+  }
+
+  return [current, node]
+}
+
+export const parseString = (
+  current: number,
+  tokens: Token[]
+): [number, Node] => [
+  current + 1,
+  {
+    type: 'StringLiteral',
+    value: tokens[current].value
+  }
+]
+
+export const parseNumber = (
+  current: number,
+  tokens: Token[]
+): [number, Node] => [
+  current + 1,
+  {
+    type: 'NumberLiteral',
+    value: tokens[current].value
+  }
+]
+
+export const parseBinaryExpression = (
+  current: number,
+  tokens: Token[]
+): [number, Node] => {
+  let left
+  ;[current, left] = parseToken(current, tokens, true)
+
+  const operator = tokens[current++].value
+
+  let right
+  ;[current, right] = parseToken(current, tokens)
+
+  if (!left || !right) {
+    throw new Error('Expression Error')
+  }
+  return [
+    current,
+    {
+      type: 'BinaryExpression',
+      operator,
+      left,
+      right
+    }
+  ]
+}
+
+const parseIdentifier = (current: number, tokens: Token[]): [number, Node] => [
+  current + 1,
+  { type: 'Identifier', name: tokens[current].value }
+]
+
+const parseVariable = (current: number, tokens: Token[]): [number, Node] => {
+  let identifier
+  ;[current, identifier] = parseIdentifier(current, tokens)
+
+  let body
+  ;[current, body] = parseToken(current + 1, tokens)
+
+  if (!body || !identifier) {
+    throw new Error('Problem in variable declaration')
+  }
+  return [
+    current,
+    {
+      type: 'Variable',
+      identifier: identifier as IdentifierNode,
+      body
+    }
+  ]
+}
+
+const parseToken = (
+  current: number,
+  tokens: Token[],
+  skipNext: boolean = false // ew
+): [number, Node | undefined] => {
+  const token = tokens[current]
+  const next = tokens[current + 1]
+
+  if (token.type === TokenType.EOF) {
+    return [current + 1, undefined]
+  }
+
+  if (
+    !skipNext &&
+    next &&
+    next.type === TokenType.OPERATOR &&
+    next.value !== '='
+  ) {
+    return parseBinaryExpression(current, tokens)
+  }
+
+  if (token.type === TokenType.STRING) {
+    return parseString(current, tokens)
+  }
+
+  if (token.type === TokenType.NUMBER) {
+    return parseNumber(current, tokens)
+  }
+
+  if (token.type === TokenType.IDENTIFIER) {
+    if (
+      next.type === TokenType.IDENTIFIER ||
+      next.type === TokenType.NUMBER ||
+      next.type === TokenType.STRING
+    ) {
+      let newToken = tokens[current]
+      let definition = false
+      let iter = current
+
+      while (
+        newToken &&
+        newToken.value !== WhitespaceType.SAMEDENT &&
+        newToken.value !== WhitespaceType.DEDENT
+      ) {
+        if (tokens[iter + 1] && tokens[iter + 1].value === '=>') {
+          definition = true
+        }
+        newToken = tokens[++iter]
+      }
+      if (definition) {
+        return parseFunction(current, tokens)
+      } else {
+        return parseCallExpression(current, tokens)
+      }
+    }
+    if (next.type === TokenType.OPERATOR && next.value === '=') {
+      return parseVariable(current, tokens)
+    }
+
+    return parseIdentifier(current, tokens)
+  }
+
+  if (
+    token.type === TokenType.SPECIAL ||
+    token.type === TokenType.OPERATOR ||
+    token.type === TokenType.WHITESPACE ||
+    token.type === TokenType.KEYWORD
+  ) {
+    return [current + 1, undefined]
+  }
+
+  throw new Error('Lexer Error: ' + JSON.stringify(token))
+}
+
+export default (tokens: Token[]) => {
+  let ast: AST = {
+    type: 'Program',
+    body: []
+  }
+
+  let current = 0
+  let node = undefined
+  while (current < tokens.length) {
+    ;[current, node] = parseToken(current, tokens)
+    if (node) {
+      ast.body.push(node)
+    }
+  }
+
+  return ast
+}

@@ -1,0 +1,16 @@
+{
+  "name": "ardent-platform",
+  "version": "0.1.0",
+  "main": "index.js",
+  "author": "Curtis Wilkinson",
+  "scripts": {
+    "compile":
+      "ts-node ./packages/cli/src/index.ts --project ./mock/ardent.json"
+  },
+  "license": "MIT",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "devDependencies": {
+    "ts-node": "^4.1.0"
+  }
+}

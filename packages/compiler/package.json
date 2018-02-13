@@ -1,0 +1,24 @@
+{
+  "name": "ardent-compiler",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Curtis Wilkinson",
+  "license": "ISC",
+  "dependencies": {
+    "@types/mz": "^0.0.32",
+    "lex": "^1.7.9",
+    "mz": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^22.1.2",
+    "@types/node": "^9.4.5",
+    "jest": "^22.2.2",
+    "node": "^9.5.0",
+    "prettier": "^1.10.2",
+    "typescript": "^2.7.1"
+  }
+}
